@@ -230,7 +230,8 @@ func (p *parametizer) scanFormatFn() stateFn {
 	// the character was already read, so no need to check the error.
 	ch, _ := p.peek()
 	// 6 should be the maximum length of a format string, for example "%:-9.9d".
-	f := []byte{'%', ch, 0, 0, 0, 0}
+	f := make([]byte, 2, 6)
+	f[0], f[1] = '%', ch
 	var err error
 	for {
 		p.pos++
@@ -242,17 +243,18 @@ func (p *parametizer) scanFormatFn() stateFn {
 		switch ch {
 		case 'o', 'd', 'x', 'X':
 			fmt.Fprintf(p.buf, string(f), p.s.popInt())
-			break
+			p.pos++
+			return p.scanTextFn
 		case 's':
 			fmt.Fprintf(p.buf, string(f), p.s.popString())
-			break
+			p.pos++
+			return p.scanTextFn
 		case 'c':
 			fmt.Fprintf(p.buf, string(f), p.s.popByte())
-			break
+			p.pos++
+			return p.scanTextFn
 		}
 	}
-	p.pos++
-	return p.scanTextFn
 }
 
 func (p *parametizer) pushParamFn() stateFn {
