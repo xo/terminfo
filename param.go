@@ -24,19 +24,19 @@ type parametizer struct {
 	// buf is the result buffer.
 	buf *bytes.Buffer
 	// params are the parameters to interpolate.
-	params [9]interface{}
+	params [9]any
 	// vars are dynamic variables.
-	vars [26]interface{}
+	vars [26]any
 }
 
 // staticVars are the static, global variables.
 var staticVars = struct {
-	vars [26]interface{}
+	vars [26]any
 	sync.Mutex
 }{}
 
 var parametizerPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		p := new(parametizer)
 		p.buf = bytes.NewBuffer(make([]byte, 0, 45))
 		return p
@@ -55,7 +55,7 @@ func (p *parametizer) reset() {
 	p.pos, p.nest = 0, 0
 	p.s.reset()
 	p.buf.Reset()
-	p.params, p.vars = [9]interface{}{}, [26]interface{}{}
+	p.params, p.vars = [9]any{}, [26]any{}
 	parametizerPool.Put(p)
 }
 
@@ -387,7 +387,7 @@ func (p *parametizer) skipElseFn() stateFn {
 }
 
 // Printf evaluates a parameterized terminfo value z, interpolating params.
-func Printf(z []byte, params ...interface{}) string {
+func Printf(z []byte, params ...any) string {
 	p := newParametizer(z)
 	defer p.reset()
 	// make sure we always have 9 parameters -- makes it easier
@@ -400,6 +400,6 @@ func Printf(z []byte, params ...interface{}) string {
 
 // Fprintf evaluates a parameterized terminfo value z, interpolating params and
 // writing to w.
-func Fprintf(w io.Writer, z []byte, params ...interface{}) {
+func Fprintf(w io.Writer, z []byte, params ...any) {
 	w.Write([]byte(Printf(z, params...)))
 }

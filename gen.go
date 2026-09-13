@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"go/format"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -63,7 +62,7 @@ func run(dest, cache, ver string) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(dest, buf, 0o644)
+	return os.WriteFile(dest, buf, 0o644)
 }
 
 func getVer(ver string) (string, error) {
@@ -106,7 +105,7 @@ func get(cache, ver string) ([]byte, error) {
 	fi, err := os.Stat(cacheFile)
 	if err == nil && !fi.IsDir() {
 		log.Printf("loading %s", cacheFile)
-		return ioutil.ReadFile(cacheFile)
+		return os.ReadFile(cacheFile)
 	}
 	// retrieve
 	log.Printf("retrieving %s", file)
@@ -116,13 +115,13 @@ func get(cache, ver string) ([]byte, error) {
 	}
 	defer res.Body.Close()
 	// read
-	buf, err := ioutil.ReadAll(res.Body)
+	buf, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
 	// cache
 	log.Printf("saving %s", cacheFile)
-	if err := ioutil.WriteFile(cacheFile, buf, 0o644); err != nil {
+	if err := os.WriteFile(cacheFile, buf, 0o644); err != nil {
 		return nil, err
 	}
 	return buf, nil

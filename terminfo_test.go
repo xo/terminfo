@@ -68,8 +68,9 @@ func TestValues(t *testing.T) {
 			if err != nil {
 				t.Fatalf("expected no error, got: %s", err)
 			}
-			// load
-			ti, err := Load(term)
+			// open the file directly: a different entry can claim this term
+			// as an alias, and would then satisfy Load from the term cache
+			ti, err := Open(filepath.Dir(filepath.Dir(filename)), term)
 			if err != nil {
 				t.Fatalf("expected no error, got: %v", err)
 			}
@@ -177,12 +178,12 @@ var shortCapNameMap map[string]int
 
 type infocmp struct {
 	names          []string
-	boolCaps       map[int]interface{}
-	numCaps        map[int]interface{}
-	stringCaps     map[int]interface{}
-	extBoolCaps    map[int]interface{}
-	extNumCaps     map[int]interface{}
-	extStringCaps  map[int]interface{}
+	boolCaps       map[int]any
+	numCaps        map[int]any
+	stringCaps     map[int]any
+	extBoolCaps    map[int]any
+	extNumCaps     map[int]any
+	extStringCaps  map[int]any
 	extBoolNames   map[int]string
 	extNumNames    map[int]string
 	extStringNames map[int]string
@@ -213,34 +214,31 @@ func getInfocmpData(t *testing.T, term string) (*infocmp, error) {
 	if !strings.HasSuffix(strings.TrimSpace(m[0][1]), "_alias_data") {
 		return nil, errors.New("missing _alias_data")
 	}
-	// some names have " in them, and infocmp -E doesn't correctly escape them
-	names, err := strconv.Unquote(`"` + strings.Replace(m[0][2][1:len(m[0][2])-1], `"`, `\"`, -1) + `"`)
+	names, err := strconv.Unquote(m[0][2])
 	if err != nil {
 		return nil, fmt.Errorf("could not unquote _alias_data: %v", err)
 	}
 	ic := &infocmp{
 		names:          strings.Split(names, "|"),
-		boolCaps:       make(map[int]interface{}),
-		numCaps:        make(map[int]interface{}),
-		stringCaps:     make(map[int]interface{}),
-		extBoolCaps:    make(map[int]interface{}),
-		extNumCaps:     make(map[int]interface{}),
-		extStringCaps:  make(map[int]interface{}),
+		boolCaps:       make(map[int]any),
+		numCaps:        make(map[int]any),
+		stringCaps:     make(map[int]any),
+		extBoolCaps:    make(map[int]any),
+		extNumCaps:     make(map[int]any),
+		extStringCaps:  make(map[int]any),
 		extBoolNames:   make(map[int]string),
 		extNumNames:    make(map[int]string),
 		extStringNames: make(map[int]string),
 	}
-	// load string cap data
+	// load the declared strings, keyed by the identifier that the cap value
+	// arrays reference. infocmp declares a <term>_s_<cap> for every string cap
+	// value, and a name_of_<cap> for every extended cap name.
 	caps := make(map[string]string, len(m))
 	for i, s := range m[1:] {
 		k := strings.TrimSpace(s[1])
-		idx := strings.LastIndex(k, "_s_")
-		if idx == -1 {
-			return nil, fmt.Errorf("string cap %d (%s) does not contain _s_", i, k)
-		}
 		v, err := strconv.Unquote(s[2])
 		if err != nil {
-			return nil, fmt.Errorf("could not unquote %d: %v", i, err)
+			return nil, fmt.Errorf("could not unquote %d (%s): %v", i, k, err)
 		}
 		caps[k] = v
 	}
@@ -269,7 +267,7 @@ var (
 )
 
 // processSect processes a text section in the infocmp C export.
-func processSect(buf []byte, caps map[string]string, xx, yy map[int]interface{}, extn map[int]string, sectRE *regexp.Regexp) error {
+func processSect(buf []byte, caps map[string]string, xx, yy map[int]any, extn map[int]string, sectRE *regexp.Regexp) error {
 	var err error
 	// extract section
 	start := sectRE.FindIndex(buf)
@@ -294,7 +292,7 @@ func processSect(buf []byte, caps map[string]string, xx, yy map[int]interface{},
 			extc++
 		}
 		// get cap value
-		var v interface{}
+		var v any
 		switch {
 		case s[2] == "TRUE" || s[2] == "FALSE":
 			v = s[2] == "TRUE"
@@ -390,7 +388,7 @@ func TestCapSizes(t *testing.T) {
 }
 
 func TestCapNames(t *testing.T) {
-	for i := 0; i < CapCountBool; i++ {
+	for i := range CapCountBool {
 		n, s := BoolCapName(i), BoolCapNameShort(i)
 		if n == "" {
 			t.Errorf("Bool cap %d should have name", i)
@@ -402,7 +400,7 @@ func TestCapNames(t *testing.T) {
 			t.Errorf("Bool cap %d name and short name should not equal (%s==%s)", i, n, s)
 		}
 	}
-	for i := 0; i < CapCountNum; i++ {
+	for i := range CapCountNum {
 		n, s := NumCapName(i), NumCapNameShort(i)
 		if n == "" {
 			t.Errorf("Num cap %d should have name", i)
@@ -414,7 +412,7 @@ func TestCapNames(t *testing.T) {
 			t.Errorf("Num cap %d name and short name should not equal (%s==%s)", i, n, s)
 		}
 	}
-	for i := 0; i < CapCountString; i++ {
+	for i := range CapCountString {
 		n, s := StringCapName(i), StringCapNameShort(i)
 		if n == "" {
 			t.Errorf("String cap %d should have name", i)

@@ -30,27 +30,38 @@ func main() {
 	fmt.Printf("#\tReconstructed via %s from file: %s\n", strings.TrimPrefix(os.Args[0], "./"), ti.File)
 	fmt.Printf("%s,\n", strings.TrimSpace(strings.Join(ti.Names, "|")))
 
-	process(ti.BoolCaps, ti.ExtBoolCaps, ti.BoolsM, terminfo.BoolCapName, nil)
+	process(ti.BoolCaps, ti.ExtBoolCaps, ti.BoolsM, terminfo.BoolCapName, nil, nil)
 	process(
 		ti.NumCaps, ti.ExtNumCaps, ti.NumsM, terminfo.NumCapName,
-		func(v interface{}) string { return fmt.Sprintf("#%d", v) },
+		func(v any) string { return fmt.Sprintf("#%d", v) }, nil,
 	)
 	process(
 		ti.StringCaps, ti.ExtStringCaps, ti.StringsM, terminfo.StringCapName,
-		func(v interface{}) string { return "=" + escape(v.([]byte)) },
+		func(v any) string { return "=" + escape(v.([]byte)) },
+		missingNames(ti.ExtStringsM, func(i int) string { return string(ti.ExtStringNames[i]) }),
 	)
 }
 
-func process(x, y interface{}, m map[int]bool, name func(int) string, mask func(interface{}) string) {
-	printIt(x, m, name, mask)
+func process(x, y any, m map[int]bool, name func(int) string, mask func(any) string, xm []string) {
+	printIt(x, missingNames(m, name), mask)
 	if *flagExtended {
-		printIt(y, nil, name, mask)
+		printIt(y, xm, mask)
 	}
 }
 
-// process walks the values in z, adding missing elements in m. a mask func can
-// be provided to format the values in z.
-func printIt(z interface{}, m map[int]bool, name func(int) string, mask func(interface{}) string) {
+// missingNames returns the names of the missing caps in m, formatting the index
+// key with name.
+func missingNames(m map[int]bool, name func(int) string) []string {
+	var z []string
+	for i := range m {
+		z = append(z, name(i))
+	}
+	return z
+}
+
+// process walks the values in z, adding the missing caps named in m. a mask
+// func can be provided to format the values in z.
+func printIt(z any, m []string, mask func(any) string) {
 	var names []string
 	x := make(map[string]string)
 	switch v := z.(type) {
@@ -95,8 +106,7 @@ func printIt(z interface{}, m map[int]bool, name func(int) string, mask func(int
 	}
 
 	// add missing
-	for i := range m {
-		n := name(i)
+	for _, n := range m {
 		x[n], names = "@", append(names, n)
 	}
 
