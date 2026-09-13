@@ -231,7 +231,7 @@ func canonicalizeAscChars(z []byte) []byte {
 		if _, ok := enc[z[i]]; !ok {
 			a, b := z[i], z[i+1]
 			// log.Printf(">>> a: %d %c, b: %d %c", a, a, b, b)
-			c, enc[a] = append(c, b), b
+			c, enc[a] = append(c, a), b
 		}
 	}
 	sort.Slice(c, func(i, j int) bool {
