@@ -3,7 +3,7 @@ package terminfo
 import "testing"
 
 func TestPrintfFormattedValues(t *testing.T) {
-	for _, tt := range []struct {
+	for _, test := range []struct {
 		format string
 		params []any
 		want   string
@@ -15,9 +15,9 @@ func TestPrintfFormattedValues(t *testing.T) {
 		{"%p1%:-4s!", []any{"ab"}, "ab  !"},
 		{"%p1%3c!", []any{byte('a')}, "  a!"},
 	} {
-		t.Run(tt.format, func(t *testing.T) {
-			if got := Printf([]byte(tt.format), tt.params...); got != tt.want {
-				t.Fatalf("Printf = %q, want %q", got, tt.want)
+		t.Run(test.format, func(t *testing.T) {
+			if got := Printf([]byte(test.format), test.params...); got != test.want {
+				t.Fatalf("Printf = %q, want %q", got, test.want)
 			}
 		})
 	}

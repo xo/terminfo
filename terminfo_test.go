@@ -3,25 +3,21 @@ package terminfo
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
-
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 )
 
 func TestLoad(t *testing.T) {
-	keys := maps.Keys(terms(t))
-	slices.Sort(keys)
-	for _, ts := range keys {
-		term := ts
+	for _, term := range slices.Sorted(maps.Keys(terms(t))) {
 		t.Run(term, func(t *testing.T) {
 			if err := os.Setenv("TERM", term); err != nil {
 				t.Fatalf("could not set TERM environment variable, got: %v", err)
@@ -40,8 +36,7 @@ func TestLoad(t *testing.T) {
 }
 
 func TestOpen(t *testing.T) {
-	for ts, n := range terms(t) {
-		term, filename := ts, n
+	for term, filename := range terms(t) {
 		t.Run(strings.TrimPrefix(filename, "/"), func(t *testing.T) {
 			// open
 			ti, err := Open(filepath.Dir(filepath.Dir(filename)), term)
@@ -60,8 +55,7 @@ func TestOpen(t *testing.T) {
 }
 
 func TestValues(t *testing.T) {
-	for ts, n := range terms(t) {
-		term, filename := ts, n
+	for term, filename := range terms(t) {
 		t.Run(filepath.Base(filename), func(t *testing.T) {
 			t.Parallel()
 			ic, err := getInfocmpData(t, term)
@@ -228,7 +222,7 @@ func unquote(s string) (string, error) {
 }
 
 func TestUnquote(t *testing.T) {
-	for _, tt := range []struct {
+	for _, test := range []struct {
 		name, input, want string
 	}{
 		// ncurses 6.5 and later escapes the " in a description
@@ -241,19 +235,19 @@ func TestUnquote(t *testing.T) {
 		{"escaped backslash", `"a\\\"b"`, `a\"b`},
 		{"empty", `""`, ``},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := unquote(tt.input)
+		t.Run(test.name, func(t *testing.T) {
+			got, err := unquote(test.input)
 			if err != nil {
 				t.Fatalf("expected no error, got: %v", err)
 			}
-			if got != tt.want {
-				t.Errorf("unquote(%s) = %q, want %q", tt.input, got, tt.want)
+			if got != test.want {
+				t.Errorf("unquote(%s) = %q, want %q", test.input, got, test.want)
 			}
 		})
 	}
-	for _, tt := range []string{``, `"`, `abc`, `"abc`} {
-		if _, err := unquote(tt); err == nil {
-			t.Errorf("unquote(%q) expected an error", tt)
+	for _, test := range []string{``, `"`, `abc`, `"abc`} {
+		if _, err := unquote(test); err == nil {
+			t.Errorf("unquote(%q) expected an error", test)
 		}
 	}
 }

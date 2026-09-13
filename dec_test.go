@@ -7,7 +7,7 @@ import (
 )
 
 func TestCanonicalizeAscChars(t *testing.T) {
-	for _, tt := range []struct {
+	for _, test := range []struct {
 		name        string
 		input, want []byte
 	}{
@@ -18,9 +18,9 @@ func TestCanonicalizeAscChars(t *testing.T) {
 		{"identity", []byte("xxqq"), []byte("qqxx")},
 		{"empty", nil, nil},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := canonicalizeAscChars(tt.input); !bytes.Equal(got, tt.want) {
-				t.Fatalf("canonicalizeAscChars(%q) = %q, want %q", tt.input, got, tt.want)
+		t.Run(test.name, func(t *testing.T) {
+			if got := canonicalizeAscChars(test.input); !bytes.Equal(got, test.want) {
+				t.Fatalf("canonicalizeAscChars(%q) = %q, want %q", test.input, got, test.want)
 			}
 		})
 	}
