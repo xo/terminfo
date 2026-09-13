@@ -291,15 +291,13 @@ func (p *parametizer) getDsVarFn() stateFn {
 	if err != nil {
 		return nil
 	}
-	var a byte
 	if ch >= 'A' && ch <= 'Z' {
-		a = 'A'
+		staticVars.Lock()
+		p.s.push(staticVars.vars[int(ch-'A')])
+		staticVars.Unlock()
 	} else if ch >= 'a' && ch <= 'z' {
-		a = 'a'
+		p.s.push(p.vars[int(ch-'a')])
 	}
-	staticVars.Lock()
-	p.s.push(staticVars.vars[int(ch-a)])
-	staticVars.Unlock()
 	p.pos++
 	return p.scanTextFn
 }
