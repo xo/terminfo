@@ -198,6 +198,66 @@ func init() {
 	}
 }
 
+// unquote unquotes the C string literal s.
+//
+// Any bare " in the body is escaped first: infocmp did not escape the " in an
+// entry's description prior to ncurses 6.5.
+func unquote(s string) (string, error) {
+	if len(s) < 2 || s[0] != '"' || s[len(s)-1] != '"' {
+		return "", fmt.Errorf("%s is not a quoted string", s)
+	}
+	var b strings.Builder
+	b.WriteByte('"')
+	for i, end := 1, len(s)-1; i < end; i++ {
+		switch s[i] {
+		case '\\':
+			// copy the escape sequence as-is
+			if i+1 < end {
+				b.WriteByte(s[i])
+				i++
+			}
+			b.WriteByte(s[i])
+		case '"':
+			b.WriteString(`\"`)
+		default:
+			b.WriteByte(s[i])
+		}
+	}
+	b.WriteByte('"')
+	return strconv.Unquote(b.String())
+}
+
+func TestUnquote(t *testing.T) {
+	for _, tt := range []struct {
+		name, input, want string
+	}{
+		// ncurses 6.5 and later escapes the " in a description
+		{"escaped quotes", `"linux+kbs|Linux fragment for \"backspace\" key"`, `linux+kbs|Linux fragment for "backspace" key`},
+		// ncurses before 6.5 did not
+		{"bare quotes", `"linux+kbs|Linux fragment for "backspace" key"`, `linux+kbs|Linux fragment for "backspace" key`},
+		{"leading bare quote", `""standard" printer info for HP ttys"`, `"standard" printer info for HP ttys`},
+		{"trailing bare quote", `"xterm focus-in/out event "keys""`, `xterm focus-in/out event "keys"`},
+		{"escapes preserved", `"\033[%i%p1%d;%p2%dr"`, "\x1b[%i%p1%d;%p2%dr"},
+		{"escaped backslash", `"a\\\"b"`, `a\"b`},
+		{"empty", `""`, ``},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := unquote(tt.input)
+			if err != nil {
+				t.Fatalf("expected no error, got: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("unquote(%s) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+	for _, tt := range []string{``, `"`, `abc`, `"abc`} {
+		if _, err := unquote(tt); err == nil {
+			t.Errorf("unquote(%q) expected an error", tt)
+		}
+	}
+}
+
 var staticCharRE = regexp.MustCompile(`(?m)^static\s+char\s+(.*)\s*\[\]\s*=\s*(".*");$`)
 
 func getInfocmpData(t *testing.T, term string) (*infocmp, error) {
@@ -214,7 +274,7 @@ func getInfocmpData(t *testing.T, term string) (*infocmp, error) {
 	if !strings.HasSuffix(strings.TrimSpace(m[0][1]), "_alias_data") {
 		return nil, errors.New("missing _alias_data")
 	}
-	names, err := strconv.Unquote(m[0][2])
+	names, err := unquote(m[0][2])
 	if err != nil {
 		return nil, fmt.Errorf("could not unquote _alias_data: %v", err)
 	}
@@ -236,7 +296,7 @@ func getInfocmpData(t *testing.T, term string) (*infocmp, error) {
 	caps := make(map[string]string, len(m))
 	for i, s := range m[1:] {
 		k := strings.TrimSpace(s[1])
-		v, err := strconv.Unquote(s[2])
+		v, err := unquote(s[2])
 		if err != nil {
 			return nil, fmt.Errorf("could not unquote %d (%s): %v", i, k, err)
 		}
