@@ -135,5 +135,14 @@ func termcolors(ti *terminfo.Terminfo) int {
 }
 ```
 
+## Documents
+
+| Document | What it holds |
+| --- | --- |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to change the project, and how to install the agent skills |
+| [AGENTS.md](AGENTS.md) | The rules for a coding agent. `CLAUDE.md` imports it |
+| [docs/PLAN.md](docs/PLAN.md) | The plan, each decision and the reason for it, and the open questions |
+| [docs/BACKLOG.md](docs/BACKLOG.md) | The work that is known and not done |
+
 [1]: https://godoc.org/github.com/xo/terminfo?status.svg
 [2]: https://godoc.org/github.com/xo/terminfo
