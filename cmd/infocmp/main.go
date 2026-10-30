@@ -37,7 +37,7 @@ func main() {
 	)
 	process(
 		ti.StringCaps, ti.ExtStringCaps, ti.StringsM, terminfo.StringCapName,
-		func(v any) string { return "=" + escape(v.([]byte)) },
+		func(v any) string { b, _ := v.([]byte); return "=" + escape(b) },
 		missingNames(ti.ExtStringsM, func(i int) string { return string(ti.ExtStringNames[i]) }),
 	)
 }
@@ -145,7 +145,7 @@ func isdigit(b byte) bool {
 	return unicode.IsDigit(rune(b))
 }
 
-// logic taken from _nc_tic_expand from ncurses-6.0/ncurses/tinfo/comp_expand.c
+// escape follows _nc_tic_expand in ncurses-6.0/ncurses/tinfo/comp_expand.c.
 func escape(buf []byte) string {
 	length := len(buf)
 	if length == 0 {

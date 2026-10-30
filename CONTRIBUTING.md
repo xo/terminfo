@@ -10,7 +10,8 @@ If the package decodes a value differently from `infocmp`, the package is
 wrong. A fix comes with a test that fails before the fix.
 
 Do not edit `capvals.go` by hand. `gen.go` writes it from the `Caps` file of
-an `ncurses` release (D4).
+`ncurses` 6.6 (D4, D26). To move to a new release, change `ncursesVer` in
+`gen.go` and run `go generate`.
 
 `terminfo` makes no promise of backward compatibility (D21). If a change
 renames or removes an exported identifier, name it in the pull request.
@@ -21,16 +22,18 @@ The tests read the terminfo database on your machine, and they run
 `/usr/bin/infocmp`. On Debian and Ubuntu, install `ncurses-bin` and
 `ncurses-term` first.
 
-Run these in the repository root. Each must pass, and `gofmt -l .` must print
-nothing:
+Run these in the repository root. Each must pass, `gofmt -l .` must print
+nothing, and `golangci-lint` must report 0 issues:
 
 ```sh
 gofmt -l .
 go vet ./...
 go test -count=1 ./...
+golangci-lint run ./...
 ```
 
-CI runs the same commands in GitHub Actions.
+CI runs the same commands in GitHub Actions, with golangci-lint v2.14.0
+(D25).
 
 ## Writing
 

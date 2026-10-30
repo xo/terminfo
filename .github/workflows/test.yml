@@ -50,3 +50,21 @@ jobs:
 
       - name: Test
         run: go test -count=1 ./...
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      # pinned, because .golangci.yml sets `default: all`, and a newer release
+      # can turn on a linter that nobody chose. see D25 in docs/PLAN.md
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+
+      - name: Lint
+        run: golangci-lint run ./...

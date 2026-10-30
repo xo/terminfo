@@ -19,9 +19,7 @@ import (
 func TestLoad(t *testing.T) {
 	for _, term := range slices.Sorted(maps.Keys(terms(t))) {
 		t.Run(term, func(t *testing.T) {
-			if err := os.Setenv("TERM", term); err != nil {
-				t.Fatalf("could not set TERM environment variable, got: %v", err)
-			}
+			t.Setenv("TERM", term)
 			// open
 			info, err := LoadFromEnv()
 			if err != nil {
@@ -41,14 +39,14 @@ func TestLoadHome(t *testing.T) {
 	const name = "xo-terminfo-home-test"
 	home := t.TempDir()
 	dir := filepath.Join(home, ".terminfo", name[:1])
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatal(err)
 	}
 	// an entry in the legacy format with a name and no capability
 	buf := []byte{0x1a, 0x01, byte(len(name) + 1), 0, 0, 0, 0, 0, 0, 0, 0, 0}
 	buf = append(buf, name...)
 	buf = append(buf, 0)
-	if err := os.WriteFile(filepath.Join(dir, name), buf, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, name), buf, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("HOME", home)
@@ -60,6 +58,15 @@ func TestLoadHome(t *testing.T) {
 	}
 	if want := filepath.Join(dir, name); ti.File != want {
 		t.Errorf("expected file %s, got: %s", want, ti.File)
+	}
+}
+
+// TestLoadMissing checks that Load returns ErrFileNotFound for an entry that
+// no directory holds.
+func TestLoadMissing(t *testing.T) {
+	t.Parallel()
+	if _, err := Load("xo-terminfo-no-such-term"); !errors.Is(err, ErrFileNotFound) {
+		t.Errorf("expected %v, got: %v", ErrFileNotFound, err)
 	}
 }
 
@@ -82,7 +89,8 @@ func TestOpen(t *testing.T) {
 	}
 }
 
-func TestValues(t *testing.T) {
+func TestValues(t *testing.T) { //nolint:gocyclo // one check for each kind of capability
+	t.Parallel()
 	for term, filename := range terms(t) {
 		t.Run(filepath.Base(filename), func(t *testing.T) {
 			t.Parallel()
@@ -106,7 +114,7 @@ func TestValues(t *testing.T) {
 					if _, ok := ti.BoolsM[i]; !ok {
 						t.Errorf("expected bool cap %d (%s) to be missing", i, BoolCapName(i))
 					}
-				} else if v.(bool) != ti.Bools[i] {
+				} else if b, ok := v.(bool); !ok || b != ti.Bools[i] {
 					t.Errorf("bool cap %d (%s) should be %t", i, BoolCapName(i), v)
 				}
 			}
@@ -119,7 +127,7 @@ func TestValues(t *testing.T) {
 				if !ok {
 					t.Errorf("should have extended bool %d", i)
 				}
-				if v.(bool) != z {
+				if b, ok := v.(bool); !ok || b != z {
 					t.Errorf("extended bool cap %d (%s) should be %t", i, ic.extBoolNames[i], v)
 				}
 				n, ok := ti.ExtBoolNames[i]
@@ -132,11 +140,12 @@ func TestValues(t *testing.T) {
 			}
 			// check num caps
 			for i, v := range ic.numCaps {
+				// a nil value is absent or cancelled, and the test does not
+				// tell them apart yet. see B13 in docs/BACKLOG.md
 				if v == nil {
-					if _, ok := ti.NumsM[i]; !ok {
-						// t.Errorf("term %s expected num cap %d (%s) to be missing", i, NumCapName(i))
-					}
-				} else if v.(int) != ti.Nums[i] {
+					continue
+				}
+				if n, ok := v.(int); !ok || n != ti.Nums[i] {
 					t.Errorf("num cap %d (%s) should be %d", i, NumCapName(i), v)
 				}
 			}
@@ -149,7 +158,7 @@ func TestValues(t *testing.T) {
 				if !ok {
 					t.Errorf("should have extended num %d", i)
 				}
-				if v.(int) != z {
+				if n, ok := v.(int); !ok || n != z {
 					t.Errorf("extended num cap %d (%s) should be %t", i, ic.extNumNames[i], v)
 				}
 				n, ok := ti.ExtNumNames[i]
@@ -162,11 +171,12 @@ func TestValues(t *testing.T) {
 			}
 			// check string caps
 			for i, v := range ic.stringCaps {
+				// a nil value is absent or cancelled, and the test does not
+				// tell them apart yet. see B13 in docs/BACKLOG.md
 				if v == nil {
-					if _, ok := ti.StringsM[i]; !ok {
-						// t.Errorf("term %s expected string cap %d (%s) to be missing", i, StringCapName(i))
-					}
-				} else if v.(string) != string(ti.Strings[i]) {
+					continue
+				}
+				if s, ok := v.(string); !ok || s != string(ti.Strings[i]) {
 					t.Errorf("string cap %d (%s) is invalid:", i, StringCapName(i))
 					t.Errorf("got:  %#v", string(ti.Strings[i]))
 					t.Errorf("want: %#v", v)
@@ -181,7 +191,7 @@ func TestValues(t *testing.T) {
 				if !ok {
 					t.Errorf("should have extended string %d", i)
 				}
-				if v.(string) != string(z) {
+				if s, ok := v.(string); !ok || s != string(z) {
 					t.Errorf("extended string cap %d (%s) should be %t", i, ic.extStringNames[i], v)
 				}
 				n, ok := ti.ExtStringNames[i]
@@ -249,6 +259,44 @@ func unquote(s string) (string, error) {
 	return strconv.Unquote(b.String())
 }
 
+// TestStringCapsPresent checks that the string capability maps hold only
+// the capabilities that the entry holds.
+func TestStringCapsPresent(t *testing.T) {
+	t.Parallel()
+	ti, err := Load("xterm-256color")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var present int
+	for _, v := range ti.Strings {
+		if v != nil {
+			present++
+		}
+	}
+	tests := []struct {
+		name string
+		f    func() map[string][]byte
+		exp  int
+	}{
+		{"StringCaps", ti.StringCaps, present},
+		{"StringCapsShort", ti.StringCapsShort, present},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			m := test.f()
+			for k, v := range m {
+				if v == nil {
+					t.Errorf("expected no nil value, got one for %s", k)
+				}
+			}
+			if len(m) != test.exp {
+				t.Errorf("expected %d capabilities, got: %d", test.exp, len(m))
+			}
+		})
+	}
+}
+
 func TestUnquote(t *testing.T) {
 	for _, test := range []struct {
 		name, input, want string
@@ -283,8 +331,9 @@ func TestUnquote(t *testing.T) {
 var staticCharRE = regexp.MustCompile(`(?m)^static\s+char\s+(.*)\s*\[\]\s*=\s*(".*");$`)
 
 func getInfocmpData(t *testing.T, term string) (*infocmp, error) {
+	t.Helper()
 	t.Logf("loading infocmp data for term %s", term)
-	c := exec.Command("/usr/bin/infocmp", "-E", "-x")
+	c := exec.CommandContext(t.Context(), "/usr/bin/infocmp", "-E", "-x")
 	c.Env = []string{"TERM=" + term}
 	buf, err := c.CombinedOutput()
 	if err != nil {
@@ -298,7 +347,7 @@ func getInfocmpData(t *testing.T, term string) (*infocmp, error) {
 	}
 	names, err := unquote(m[0][2])
 	if err != nil {
-		return nil, fmt.Errorf("could not unquote _alias_data: %v", err)
+		return nil, fmt.Errorf("could not unquote _alias_data: %w", err)
 	}
 	ic := &infocmp{
 		names:          strings.Split(names, "|"),
@@ -320,7 +369,7 @@ func getInfocmpData(t *testing.T, term string) (*infocmp, error) {
 		k := strings.TrimSpace(s[1])
 		v, err := unquote(s[2])
 		if err != nil {
-			return nil, fmt.Errorf("could not unquote %d (%s): %v", i, k, err)
+			return nil, fmt.Errorf("could not unquote %d (%s): %w", i, k, err)
 		}
 		caps[k] = v
 	}
@@ -382,7 +431,7 @@ func processSect(buf []byte, caps map[string]string, xx, yy map[int]any, extn ma
 			var j int64
 			j, err = strconv.ParseInt(s[2], 10, 32)
 			if err != nil {
-				return fmt.Errorf("line %d could not parse: %v", i, err)
+				return fmt.Errorf("line %d could not parse: %w", i, err)
 			}
 			v = int(j)
 		case absCanRE.MatchString(s[2]):
@@ -407,13 +456,15 @@ func processSect(buf []byte, caps map[string]string, xx, yy map[int]any, extn ma
 }
 
 var termNameCache = struct {
-	names map[string]string
 	sync.Mutex
+
+	names map[string]string
 }{}
 
 var fileRE = regexp.MustCompile("^([0-9]+|[a-zA-Z])/")
 
 func terms(t *testing.T) map[string]string {
+	t.Helper()
 	termNameCache.Lock()
 	defer termNameCache.Unlock()
 	if termNameCache.names == nil {

@@ -30,9 +30,10 @@ extended strings. The faults that are still open are in
 ## Direction
 
 The file format has not changed in decades, so the package does not grow new
-features (D14). The work is to fix faults, to keep up with the `ncurses`
-releases that the tests run against, and to keep the code idiomatic Go. A
-higher level terminal library belongs in another package.
+features (D14). `Puts` is the one exception (D23). The work is to fix faults,
+to keep up with the `ncurses` releases that the tests run against, and to
+keep the code idiomatic Go. A higher level terminal library belongs in
+another package.
 
 ## Decisions
 
@@ -63,15 +64,22 @@ the entry says so.
 | [D11](#d11-a-sentinel-error-is-a-constant-of-type-error-decided) | A sentinel error is a constant of type Error | Decided |
 | [D12](#d12-examples-are-in-_examples-which-the-go-command-skips-decided) | Examples are in _examples, which the go command skips | Decided |
 | [D13](#d13-the-decoder-reads-the-32-bit-number-format-decided) | The decoder reads the 32-bit number format | Decided |
-| [D14](#d14-terminfo-does-not-grow-new-features-decided) | terminfo does not grow new features | Decided |
+| [D14](#d14-terminfo-does-not-grow-new-features-decided-amended-by-d23) | terminfo does not grow new features | Decided. Amended by D23 |
 | [D15](#d15-the-decoder-accepts-an-entry-of-up-to-32768-bytes-as-ncurses-61-does-decided-amends-d7) | The decoder accepts an entry of up to 32768 bytes, as ncurses 6.1 does | Decided. Amends D7 |
 | [D16](#d16-a-lowercase-variable-is-local-to-one-evaluation-and-an-uppercase-variable-is-shared-decided) | A lowercase variable is local to one evaluation, and an uppercase variable is shared | Decided |
 | [D17](#d17-tests-run-in-github-actions-on-the-ncurses-that-ubuntu-ships-decided-amends-d6) | Tests run in GitHub Actions, on the ncurses that Ubuntu ships | Decided. Amends D6 |
 | [D18](#d18-the-module-declares-a-recent-go-version-decided) | The module declares a recent Go version | Decided |
 | [D19](#d19-the-tests-accept-the-infocmp-output-of-ncurses-before-65-decided) | The tests accept the infocmp output of ncurses before 6.5 | Decided |
-| [D20](#d20-the-module-requires-no-other-module-proposed) | The module requires no other module | Proposed |
+| [D20](#d20-the-module-requires-no-other-module-decided) | The module requires no other module | Decided |
 | [D21](#d21-terminfo-makes-no-promise-of-backward-compatibility-decided) | terminfo makes no promise of backward compatibility | Decided |
 | [D22](#d22-terminfo-is-set-up-for-coding-agents-as-every-xo-repository-is-decided) | terminfo is set up for coding agents as every xo repository is | Decided |
+| [D23](#d23-terminfo-gets-puts-which-applies-padding-as-tputs-does-decided-amends-d14) | terminfo gets Puts, which applies padding as tputs does | Decided. Amends D14 |
+| [D24](#d24-colorlevelfromenv-returns-the-basic-level-for-8-to-255-colors-decided) | ColorLevelFromEnv returns the basic level for 8 to 255 colors | Decided |
+| [D25](#d25-ci-runs-golangci-lint-with-the-configuration-of-dburl-decided) | CI runs golangci-lint with the configuration of dburl | Decided |
+| [D26](#d26-gengo-writes-capvalsgo-from-one-named-ncurses-release-decided) | gen.go writes capvals.go from one named ncurses release | Decided |
+| [D27](#d27-load-and-open-share-each-entry-and-a-caller-must-not-change-it-decided) | Load and Open share each entry, and a caller must not change it | Decided |
+| [D28](#d28-stringcaps-leaves-out-each-absent-capability-decided) | StringCaps leaves out each absent capability | Decided |
+| [D29](#d29-load-returns-errfilenotfound-when-no-directory-holds-the-entry-decided) | Load returns ErrFileNotFound when no directory holds the entry | Decided |
 
 ### D1. terminfo is a rewrite of nhooyr/terminfo in idiomatic Go. Decided.
 
@@ -216,7 +224,7 @@ Matt Peterson added the format that pull request 1 calls the "new ncurses
 32 bits and not in 16 bits. Ken merged the pull request. `Decode` reads
 either magic number and sets the width of a number to match.
 
-### D14. terminfo does not grow new features. Decided.
+### D14. terminfo does not grow new features. Decided. Amended by D23.
 
 Date: 2021-02-16. Pull request 2.
 
@@ -278,7 +286,7 @@ of an entry. `strconv.Unquote` then refused the string. `ce65c9f` added
 `unquote`, which escapes each bare `"` first, and `TestUnquote`. The tests
 now pass on an older `ncurses` too.
 
-### D20. The module requires no other module. Proposed.
+### D20. The module requires no other module. Decided.
 
 Date: 2026-09-14. Commit: `c203b35`.
 
@@ -286,8 +294,13 @@ Date: 2026-09-14. Commit: `c203b35`.
 The package now imports only the standard library. No commit or comment says
 that it must stay that way.
 
-`gen.go` imports `github.com/kenshaw/snaker`, which `go.mod` does not
-require, so `go generate` fails now. See open question 1 and B1.
+`gen.go` imported `github.com/kenshaw/snaker`, which `go.mod` did not
+require, so `go generate` failed.
+
+On 2026-10-30, Ken answered open question 1: the module keeps no `require`
+line, and `gen.go` stops using `snaker`. `gen.go` now makes each Go name with
+a small function of its own. That function gives the same names as `snaker`
+for every capability in `ncurses` 6.6.
 
 ### D21. terminfo makes no promise of backward compatibility. Decided.
 
@@ -332,25 +345,90 @@ the root. `TestTheDecisionIndexIsComplete` checks each row of the table above
 against its heading, and `TestAnAmendmentPointsBothWays` checks that each
 amendment is named on both sides.
 
+### D23. terminfo gets Puts, which applies padding as tputs does. Decided. Amends D14.
+
+Date: 2026-10-30. Source: open question 5.
+
+rline asked for a way to write a capability with its padding applied
+(rline D55). A padding marker, such as the `$<100/>` in the `flash` capability of
+`xterm`, holds a delay. `Strings` and `Printf` keep the marker, so a program
+that writes either one prints the marker on the screen. A `Puts` from the
+2016 code was a comment from `24dccac` on.
+
+Ken chose to finish `Puts`. `Puts(w, s, lines, baud)` follows `tputs` in
+`ncurses` 6.6. It applies a delay when the marker holds `/`, when `s` is the
+`bel` or the `flash` capability, or when `baud` is at least `pb` and the entry
+has no `xon`. It writes a delay as pad characters, or sleeps when the entry
+has `npc`. It limits each delay to 30 seconds.
+
+D14 still holds for every other feature.
+
+### D24. ColorLevelFromEnv returns the basic level for 8 to 255 colors. Decided.
+
+Date: 2026-10-30. Source: open question 3.
+
+When no environment variable decides, `ColorLevelFromEnv` reads
+`max_colors`. It returned `ColorLevelNone` for 8 or 16 colors, so `xterm` got
+no color. Ken said that this is a fault. Now an entry with no `max_colors`, or
+fewer than 8 colors, gets `ColorLevelNone`. An entry with 8 to 255 colors gets
+`ColorLevelBasic`, and one with 256 or more gets `ColorLevelHundreds`.
+
+### D25. CI runs golangci-lint with the configuration of dburl. Decided.
+
+Date: 2026-10-30. Source: open question 4.
+
+`.golangci.yml` is the one from dburl. It turns on every linter, and turns
+off the same ones. Its `depguard` rule allows the standard library and
+`github.com/xo/terminfo`. It also excludes gosec G703, as it excludes G304,
+because `Open` reads the file that the caller names. It lets `cmd/` print
+with `fmt.Printf`.
+
+The lint job in GitHub Actions installs golangci-lint v2.14.0, as dburl does.
+The version is pinned, because a newer release can turn on a linter that
+nobody chose. A `//nolint` comment names the linter and gives the reason.
+
+### D26. gen.go writes capvals.go from one named ncurses release. Decided.
+
+Date: 2026-10-30. Source: open question 2.
+
+`gen.go` took the newest `ncurses` release on each run, and `capvals.go` did
+not name the release that wrote it. Now `gen.go` uses `ncurses` 6.6 unless
+`-ver` names another release, and the first line of `capvals.go` names the
+release. The `capvals.go` that 6.6 writes is the same as the one before,
+apart from that line. To move to a new release, change `ncursesVer` in
+`gen.go` and run `go generate`.
+
+### D27. Load and Open share each entry, and a caller must not change it. Decided.
+
+Date: 2026-10-30. Source: B10.
+
+`Load` and `Open` cache each entry, and return the same `*Terminfo` to every
+caller. Its maps are exported, so a caller that changes one changes it for
+every other caller. Ken chose to write this in the doc comments of `Load`
+and `Open`, and not to change the API.
+
+### D28. StringCaps leaves out each absent capability. Decided.
+
+Date: 2026-10-30. Source: B8.
+
+`Strings` holds a nil value for each absent capability, and `StringCaps`
+and `StringCapsShort` returned a key for each one. Ken chose to leave
+`Strings` as it is, so that `Strings[FlashScreen]` still works. The four
+`StringCaps` methods leave out each nil value. `StringsM` still names each
+cancelled capability.
+
+### D29. Load returns ErrFileNotFound when no directory holds the entry. Decided.
+
+Date: 2026-10-30. Source: B5.
+
+`Load` returned `ErrDatabaseDirectoryNotFound` for a missing entry, while
+the directories existed. Ken chose to return `ErrFileNotFound` in every case,
+as `Open` does, and to remove `ErrDatabaseDirectoryNotFound`. D21 allows the
+removal.
+
 ## Open questions for Ken
 
 An open question is not a decision. When Ken answers one, it becomes a
 decision above, and the question goes.
 
-1. Must the module keep no `require` line (D20)? `gen.go` imports
-   `github.com/kenshaw/snaker`, which `go.mod` does not require, so
-   `go generate` fails. Does `snaker` go into `go.mod`, does `gen.go` get
-   its own module, or does `gen.go` stop using `snaker`? See B1.
-2. Which `ncurses` release wrote the current `capvals.go`? Its comments match
-   neither 6.2 nor 6.3, which are in `.cache`. Must `gen.go` pin a release,
-   and must `capvals.go` name the release that wrote it? See B2.
-3. `ColorLevelFromEnv` returns `ColorLevelNone` for a terminal whose
-   `max_colors` is 8 or 16, and `ColorLevelBasic` for one with 17 to 255.
-   Is that deliberate? See B7.
-4. Must CI run `golangci-lint`, with a `.golangci.yml` as in dburl and
-   tblfmt? The repository has neither now.
-5. Does terminfo get a `Puts` that writes a capability with its padding
-   applied? rline asks for it, so that it can write `flash` (rline D55). A
-   new exported function is a new feature, and D14 says that terminfo does
-   not grow new features. The other choice is to delete the `Puts` comment.
-   See B16.
+There is no open question.

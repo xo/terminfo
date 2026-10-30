@@ -68,7 +68,7 @@ func TestDecodeExtendedCancelledString(t *testing.T) {
 func buildExtended(t *testing.T, names string, idx []int, data string, used int) []byte {
 	t.Helper()
 	addShort := func(buf []byte, v int) []byte {
-		return append(buf, byte(v), byte(v>>8))
+		return append(buf, byte(v), byte(v>>8)) //nolint:gosec // the low 16 bits, little endian
 	}
 	var buf []byte
 	for _, v := range []int{magic, len(names) + 1, 0, 0, 0, 0} {

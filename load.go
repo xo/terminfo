@@ -1,6 +1,7 @@
 package terminfo
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,15 +10,21 @@ import (
 
 // termCache is the terminfo cache.
 var termCache = struct {
-	db map[string]*Terminfo
 	sync.RWMutex
+
+	db map[string]*Terminfo
 }{
 	db: make(map[string]*Terminfo),
 }
 
 // Load follows the behavior described in terminfo(5) to find correct the
 // terminfo file using the name, reads the file and then returns a Terminfo
-// struct that describes the file.
+// struct that describes the file. It returns ErrFileNotFound when no
+// directory holds the file.
+//
+// Load caches each entry that it reads, and returns the same *Terminfo to
+// every caller. A caller must not change the returned value or its maps,
+// because the change is then seen by every other caller.
 func Load(name string) (*Terminfo, error) {
 	if name == "" {
 		return nil, ErrEmptyTermName
@@ -45,13 +52,13 @@ func Load(name string) (*Terminfo, error) {
 	checkDirs = append(checkDirs, "/etc/terminfo", "/lib/terminfo", "/usr/share/terminfo")
 	for _, dir := range checkDirs {
 		ti, err := Open(dir, name)
-		if err != nil && err != ErrFileNotFound && !os.IsNotExist(err) {
+		if err != nil && !errors.Is(err, ErrFileNotFound) && !os.IsNotExist(err) {
 			return nil, err
 		} else if err == nil {
 			return ti, nil
 		}
 	}
-	return nil, ErrDatabaseDirectoryNotFound
+	return nil, ErrFileNotFound
 }
 
 // LoadFromEnv loads the terminal info based on the name contained in

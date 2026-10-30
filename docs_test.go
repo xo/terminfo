@@ -65,7 +65,7 @@ var decisionHeading = regexp.MustCompile(`^### D(\d+)\. (.+?)\. ((?:Decided|Prop
 func decisions(t *testing.T) []decision {
 	t.Helper()
 	var out []decision
-	for _, line := range strings.Split(string(read(t, planPath)), "\n") {
+	for line := range strings.SplitSeq(string(read(t, planPath)), "\n") {
 		if !strings.HasPrefix(line, "### D") {
 			continue
 		}

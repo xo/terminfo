@@ -32,8 +32,9 @@ every other agent read the same rules. Edit this file, not that one.
 | looking for work that is known and not done | [docs/BACKLOG.md](docs/BACKLOG.md) |
 | changing how a file is decoded | `dec.go` and `terminfo.go`, then D3, D13 and D15 |
 | changing how a parameterized string is evaluated | `param.go` and `stack.go`, then D9 and D16 |
-| changing a capability name or constant | `gen.go`, then D4. Never edit `capvals.go` by hand |
-| changing color detection | `color.go`, then D10 |
+| changing a capability name or constant | `gen.go`, then D4 and D26. Never edit `capvals.go` by hand |
+| changing color detection | `color.go`, then D10 and D24 |
+| changing how padding is written | `Puts` in `terminfo.go`, then D23 |
 | writing a document, a code comment, an error message or a commit message | the `simple-english` skill. Load it first |
 | writing or reviewing Go code | the `go-pedantry` skill. Load it first |
 | installing or updating an agent skill | [CONTRIBUTING.md](CONTRIBUTING.md), under Agent skills |
@@ -53,48 +54,53 @@ repository first, such as "dbmeta D110" or "tblfmt D37".
 ## Layout
 
 - `terminfo.go` holds the `Terminfo` type, `Decode`, `Open`, the error
-  constants, and the methods that read and print capabilities.
+  constants, and the methods that read and print capabilities. `Puts`
+  writes a capability with its padding applied (D23).
 - `dec.go` holds the decoder for the compiled file format.
 - `load.go` holds `Load` and `LoadFromEnv`. `Load` searches the directories
-  that terminfo(5) names, and caches each entry that it opens (D5).
+  that terminfo(5) names, and caches each entry that it opens (D5). A caller
+  must not change a cached entry (D27).
 - `param.go` and `stack.go` evaluate a parameterized string, such as the
   value of `cup`. `Printf` and `Fprintf` are the exported entry points.
 - `color.go` holds `ColorLevel` and `ColorLevelFromEnv` (D10).
 - `caps.go` returns the long and short name of each capability.
 - `capvals.go` holds the capability constants and names. `gen.go` writes it
-  from the `Caps` file of an `ncurses` release (D4). The file says
-  "DO NOT EDIT".
+  from the `Caps` file of `ncurses` 6.6 (D4, D26). The file says
+  "DO NOT EDIT", and names the release.
 - `gen.go` is the generator. It has the `ignore` build tag, so the package
   build skips it.
 - `cmd/infocmp` prints an entry in the form of `infocmp -1 -L`.
   `cmd/infocmp/test.sh` compares its output with the system `infocmp` for
   every entry in `/usr/share/terminfo`.
-- `_examples/main.go` is the example that `README.md` shows. The go command
-  skips a folder whose name starts with `_` (D12).
+- `_examples/main.go` is the example that `README.md` links. The go command
+  skips a folder whose name starts with `_` (D12), so `go vet ./...` does not
+  check it. Run `go vet ./_examples/` after you change it.
 - `skills_test.go` and `docs_test.go` hold the checks on the agent files and
   on `docs/PLAN.md`.
 
 ## Tests and lint
 
-Run these in the repository root. Each must pass, and `gofmt -l .` must print
-nothing:
+Run these in the repository root. Each must pass, `gofmt -l .` must print
+nothing, and `golangci-lint` must report 0 issues:
 
 ```sh
 gofmt -l .
 go vet ./...
 go test -count=1 ./...
+golangci-lint run ./...
 ```
 
-CI runs the same commands in GitHub Actions, on Go 1.25 and on the latest
-stable Go (D17, D18). The repository has no `.golangci.yml`, and CI does not
-run `golangci-lint`.
+CI runs the same commands in GitHub Actions. It runs the tests on Go 1.25
+and on the latest stable Go (D17, D18). It runs golangci-lint v2.14.0 with
+`.golangci.yml`, which is the configuration of dburl (D25). A `//nolint`
+comment names the linter and gives the reason.
 
 The tests read the real terminfo database. `TestLoad`, `TestOpen` and
 `TestValues` walk every entry in `/lib/terminfo` and `/usr/share/terminfo`.
 `TestValues` runs `/usr/bin/infocmp -E -x` on each entry and compares each
 value with the decoded one (D3). A machine that runs the tests needs
-`infocmp` at that path and a terminfo database. On Debian and Ubuntu, the packages are
-`ncurses-bin` and `ncurses-term`.
+`infocmp` at that path and a terminfo database. On Debian and Ubuntu, the
+packages are `ncurses-bin` and `ncurses-term`.
 
 ## Go conventions
 
