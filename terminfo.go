@@ -5,8 +5,8 @@ package terminfo
 
 import (
 	"io"
-	"io/ioutil"
-	"path"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -222,10 +222,10 @@ func Open(dir, name string) (*Terminfo, error) {
 	var buf []byte
 	var filename string
 	for _, f := range []string{
-		path.Join(dir, name[0:1], name),
-		path.Join(dir, strconv.FormatUint(uint64(name[0]), 16), name),
+		filepath.Join(dir, name[0:1], name),
+		filepath.Join(dir, strconv.FormatUint(uint64(name[0]), 16), name),
 	} {
-		buf, err = ioutil.ReadFile(f)
+		buf, err = os.ReadFile(f)
 		if err == nil {
 			filename = f
 			break

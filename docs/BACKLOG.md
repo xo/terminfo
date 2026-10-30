@@ -54,14 +54,6 @@ Source: found on 2026-09-27, in `load.go`.
 directories exist. The error names the wrong fault. `ErrFileNotFound`
 exists and is the one that `Open` returns.
 
-### B6. Load stops when user.Current fails
-
-Source: found on 2026-09-27, in `load.go`.
-
-`Load` calls `user.Current` to find `$HOME/.terminfo`. If that call fails,
-`Load` returns the error at once. It does not try `$TERMINFO`, which it
-already added to the list, or the system directories.
-
 ### B7. ColorLevelFromEnv returns ColorLevelNone for 8 or 16 colors
 
 Source: found on 2026-09-27, in `color.go`.
@@ -133,14 +125,6 @@ Source: found on 2026-09-27, in `terminfo_test.go`.
 
 ## Cleanup
 
-### B15. The code uses io/ioutil and path
-
-Source: found on 2026-09-27, in `terminfo.go` and `load.go`.
-
-`Open` calls `ioutil.ReadFile`, which is deprecated, and not `os.ReadFile`.
-`Open` and `Load` join paths on disk with `path.Join`, and not with
-`path/filepath`.
-
 ### B16. terminfo.go holds a Puts func in a comment
 
 Source: found on 2026-09-27, in `terminfo.go`.
@@ -148,6 +132,12 @@ Source: found on 2026-09-27, in `terminfo.go`.
 `Puts` expands padding such as `$<5>`. It came from the 2016 code and has
 been a comment since the rewrite in `24dccac`. Either finish it or delete
 it.
+
+On 2026-10-30, rline asked for a way to write a capability with its padding
+applied (rline D55). The `flash` capability of `xterm` is
+`\E[?5h$<100/>\E[?5l`. `Strings[FlashScreen]` and `Printf(FlashScreen)` both
+keep `$<100/>`, so a program that writes either one prints `$<100/>` on the
+screen.
 
 ### B17. The generated-code line in capvals.go comes after the package clause
 

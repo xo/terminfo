@@ -177,7 +177,7 @@ func TestEveryDecisionReferenceExists(t *testing.T) {
 	for _, d := range decisions(t) {
 		written[strconv.Itoa(d.num)] = true
 	}
-	ref := regexp.MustCompile(`(\b(?:dbimp|dbmeta|dbtpl|dburl|tblfmt|usql) )?\bD([1-9][0-9]*)\b`)
+	ref := regexp.MustCompile(`(\b(?:dbimp|dbmeta|dbtpl|dburl|rline|tblfmt|usql) )?\bD([1-9][0-9]*)\b`)
 	for _, path := range repoFiles(t, ".md", ".go") {
 		for _, m := range ref.FindAllStringSubmatch(string(read(t, path)), -1) {
 			if m[1] == "" && !written[m[2]] {

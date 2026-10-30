@@ -349,3 +349,8 @@ decision above, and the question goes.
    Is that deliberate? See B7.
 4. Must CI run `golangci-lint`, with a `.golangci.yml` as in dburl and
    tblfmt? The repository has neither now.
+5. Does terminfo get a `Puts` that writes a capability with its padding
+   applied? rline asks for it, so that it can write `flash` (rline D55). A
+   new exported function is a new feature, and D14 says that terminfo does
+   not grow new features. The other choice is to delete the `Puts` comment.
+   See B16.

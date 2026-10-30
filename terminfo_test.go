@@ -35,6 +35,34 @@ func TestLoad(t *testing.T) {
 	}
 }
 
+// TestLoadHome checks that Load reads $HOME/.terminfo, as ncurses does, and
+// not the home folder in the user database.
+func TestLoadHome(t *testing.T) {
+	const name = "xo-terminfo-home-test"
+	home := t.TempDir()
+	dir := filepath.Join(home, ".terminfo", name[:1])
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// an entry in the legacy format with a name and no capability
+	buf := []byte{0x1a, 0x01, byte(len(name) + 1), 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	buf = append(buf, name...)
+	buf = append(buf, 0)
+	if err := os.WriteFile(filepath.Join(dir, name), buf, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+	t.Setenv("TERMINFO", "")
+	t.Setenv("TERMINFO_DIRS", "")
+	ti, err := Load(name)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if want := filepath.Join(dir, name); ti.File != want {
+		t.Errorf("expected file %s, got: %s", want, ti.File)
+	}
+}
+
 func TestOpen(t *testing.T) {
 	for term, filename := range terms(t) {
 		t.Run(strings.TrimPrefix(filename, "/"), func(t *testing.T) {
