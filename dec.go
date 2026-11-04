@@ -35,7 +35,12 @@ const (
 
 // hasInvalidCaps determines if the capabilities in h are invalid.
 func hasInvalidCaps(h []int) bool {
-	return h[fieldBoolCount] > CapCountBool ||
+	return h[fieldNameSize] < 0 ||
+		h[fieldBoolCount] < 0 ||
+		h[fieldNumCount] < 0 ||
+		h[fieldStringCount] < 0 ||
+		h[fieldTableSize] < 0 ||
+		h[fieldBoolCount] > CapCountBool ||
 		h[fieldNumCount] > CapCountNum ||
 		h[fieldStringCount] > CapCountString
 }
@@ -127,7 +132,7 @@ type decoder struct {
 
 // readBytes reads the next n bytes of buf, incrementing pos by n.
 func (d *decoder) readBytes(n int) ([]byte, error) {
-	if d.n < d.pos+n {
+	if n < 0 || d.n < d.pos+n {
 		return nil, ErrUnexpectedFileEnd
 	}
 	n, d.pos = d.pos, d.pos+n
@@ -251,7 +256,8 @@ func (d *decoder) readStrings(n, sz int) (map[int][]byte, map[int]bool, error) {
 func canonicalizeAscChars(z []byte) []byte {
 	var c []byte
 	enc := make(map[byte]byte, len(z)/2)
-	for i := 0; i < len(z); i += 2 {
+	// A last byte without a partner is ignored.
+	for i := 0; i+1 < len(z); i += 2 {
 		if _, ok := enc[z[i]]; !ok {
 			a, b := z[i], z[i+1]
 			c, enc[a] = append(c, a), b
